@@ -1,0 +1,35 @@
+{
+  "method": "RaFBNet",
+  "datasets": {
+    "ORSSD": {
+      "checkpoint": "weights/RaFBNet_ORSSD_epoch47.pth",
+      "epoch": 47,
+      "Smeasure": 0.9486720452518008,
+      "wFmeasure": 0.9125390017471718,
+      "adpEm": 0.9831128297993004,
+      "meanEm": 0.9813929144470988,
+      "maxEm": 0.9854190170408743,
+      "adpFm": 0.9047549218601444,
+      "meanFm": 0.9121146623697252,
+      "maxFm": 0.923313074543955,
+      "MAE": 0.006864088525754405,
+      "prediction_dir": "predictions/ORSSD",
+      "pred_count": 200
+    },
+    "EORSSD": {
+      "checkpoint": "weights/RaFBNet_EORSSD_epoch51.pth",
+      "epoch": 51,
+      "Smeasure": 0.9431447230243124,
+      "wFmeasure": 0.889039372536214,
+      "adpEm": 0.9759729344126586,
+      "meanEm": 0.9792962640924719,
+      "maxEm": 0.9837862340800422,
+      "adpFm": 0.8705382827225522,
+      "meanFm": 0.8846619078534678,
+      "maxFm": 0.8973226808745119,
+      "MAE": 0.004627472414133006,
+      "prediction_dir": "predictions/EORSSD",
+      "pred_count": 600
+    }
+  }
+}

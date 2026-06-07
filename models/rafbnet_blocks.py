@@ -1,0 +1,185 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import Tensor
+
+
+def channel_shuffle(x: Tensor, groups: int) -> Tensor:
+    batch_size, num_channels, height, width = x.size()
+    channels_per_group = num_channels // groups
+    x = x.view(batch_size, groups, channels_per_group, height, width)
+    x = torch.transpose(x, 1, 2).contiguous()
+    return x.view(batch_size, -1, height, width)
+
+
+class BasicConv2d(nn.Module):
+    def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0, dilation=1):
+        super().__init__()
+        self.conv = nn.Conv2d(
+            in_planes,
+            out_planes,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            bias=False,
+        )
+        self.bn = nn.BatchNorm2d(out_planes)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        return self.bn(self.conv(x))
+
+
+class SpatialAttention(nn.Module):
+    def __init__(self, kernel_size=7):
+        super().__init__()
+        assert kernel_size in (3, 7), "kernel size must be 3 or 7"
+        padding = 3 if kernel_size == 7 else 1
+        self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=padding, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        return self.sigmoid(self.conv1(torch.cat([avg_out, max_out], dim=1)))
+
+
+class SWSAM(nn.Module):
+    def __init__(self, channel=32):
+        super().__init__()
+        self.SA1 = SpatialAttention()
+        self.SA2 = SpatialAttention()
+        self.SA3 = SpatialAttention()
+        self.SA4 = SpatialAttention()
+        self.weight = nn.Parameter(torch.ones(4, dtype=torch.float32), requires_grad=True)
+        self.sa_fusion = nn.Sequential(BasicConv2d(1, 1, 3, padding=1), nn.Sigmoid())
+
+    def forward(self, x):
+        x = channel_shuffle(x, 4)
+        x1, x2, x3, x4 = torch.split(x, 8, dim=1)
+        s1 = self.SA1(x1)
+        s2 = self.SA2(x2)
+        s3 = self.SA3(x3)
+        s4 = self.SA4(x4)
+        weights = F.softmax(self.weight, dim=0)
+        s_all = s1 * weights[0] + s2 * weights[1] + s3 * weights[2] + s4 * weights[3]
+        return self.sa_fusion(s_all) * x + x
+
+
+class DirectionalConvUnit(nn.Module):
+    def __init__(self, channel):
+        super().__init__()
+        self.h_conv = nn.Conv2d(channel, channel // 4, (1, 5), padding=(0, 2))
+        self.w_conv = nn.Conv2d(channel, channel // 4, (5, 1), padding=(2, 0))
+        self.dia19_conv = nn.Conv2d(channel, channel // 4, (5, 1), padding=(2, 0))
+        self.dia37_conv = nn.Conv2d(channel, channel // 4, (1, 5), padding=(0, 2))
+
+    def forward(self, x):
+        x1 = self.h_conv(x)
+        x2 = self.w_conv(x)
+        x3 = self.inv_h_transform(self.dia19_conv(self.h_transform(x)))
+        x4 = self.inv_v_transform(self.dia37_conv(self.v_transform(x)))
+        return torch.cat((x1, x2, x3, x4), 1)
+
+    def h_transform(self, x):
+        shape = x.size()
+        x = torch.nn.functional.pad(x, (0, shape[-2]))
+        x = x.reshape(shape[0], shape[1], -1)[..., :-shape[-2]]
+        return x.reshape(shape[0], shape[1], shape[2], shape[2] + shape[3] - 1)
+
+    def inv_h_transform(self, x):
+        shape = x.size()
+        x = x.reshape(shape[0], shape[1], -1).contiguous()
+        x = torch.nn.functional.pad(x, (0, shape[-2]))
+        x = x.reshape(shape[0], shape[1], shape[2], shape[3] + 1)
+        return x[..., 0 : shape[3] - shape[2] + 1]
+
+    def v_transform(self, x):
+        x = x.permute(0, 1, 3, 2)
+        shape = x.size()
+        x = torch.nn.functional.pad(x, (0, shape[-2]))
+        x = x.reshape(shape[0], shape[1], -1)[..., :-shape[-2]]
+        x = x.reshape(shape[0], shape[1], shape[2], shape[2] + shape[3] - 1)
+        return x.permute(0, 1, 3, 2)
+
+    def inv_v_transform(self, x):
+        x = x.permute(0, 1, 3, 2)
+        shape = x.size()
+        x = x.reshape(shape[0], shape[1], -1).contiguous()
+        x = torch.nn.functional.pad(x, (0, shape[-2]))
+        x = x.reshape(shape[0], shape[1], shape[2], shape[3] + 1)
+        x = x[..., 0 : shape[3] - shape[2] + 1]
+        return x.permute(0, 1, 3, 2)
+
+
+class KTM(nn.Module):
+    def __init__(self, channel=32):
+        super().__init__()
+        self.query_conv = nn.Conv2d(channel, channel // 2, kernel_size=1)
+        self.key_conv = nn.Conv2d(channel, channel // 2, kernel_size=1)
+        self.value_conv_2 = nn.Conv2d(channel, channel, kernel_size=1)
+        self.value_conv_3 = nn.Conv2d(channel, channel, kernel_size=1)
+        self.gamma_2 = nn.Parameter(torch.zeros(1))
+        self.gamma_3 = nn.Parameter(torch.zeros(1))
+        self.softmax = nn.Softmax(dim=-1)
+        self.conv_2 = nn.Sequential(
+            BasicConv2d(channel, channel, 3, padding=1),
+            nn.ReLU(),
+            nn.Dropout2d(0.1, False),
+            nn.Conv2d(channel, channel, 1),
+        )
+        self.conv_3 = nn.Sequential(
+            BasicConv2d(channel, channel, 3, padding=1),
+            nn.ReLU(),
+            nn.Dropout2d(0.1, False),
+            nn.Conv2d(channel, channel, 1),
+        )
+        self.conv_out = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv2d(channel, channel, 1))
+
+    def forward(self, x2, x3):
+        x_sum = x2 + x3
+        x_mul = x2 * x3
+        batch, channels, height, width = x_sum.size()
+        proj_query = self.query_conv(x_sum).view(batch, -1, width * height).permute(0, 2, 1)
+        proj_key = self.key_conv(x_mul).view(batch, -1, width * height)
+        attention = self.softmax(torch.bmm(proj_query, proj_key))
+
+        value_2 = self.value_conv_2(x2).view(batch, -1, width * height)
+        value_3 = self.value_conv_3(x3).view(batch, -1, width * height)
+
+        out_2 = torch.bmm(value_2, attention.permute(0, 2, 1)).view(batch, channels, height, width)
+        out_3 = torch.bmm(value_3, attention.permute(0, 2, 1)).view(batch, channels, height, width)
+        out_2 = self.conv_2(self.gamma_2 * out_2 + x2)
+        out_3 = self.conv_3(self.gamma_3 * out_3 + x3)
+        return self.conv_out(out_2 + out_3)
+
+
+class PDecoderWithFeature(nn.Module):
+    def __init__(self, channel):
+        super().__init__()
+        self.upsample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+        self.conv_upsample1 = BasicConv2d(channel, channel, 3, padding=1)
+        self.conv_upsample2 = BasicConv2d(channel, channel, 3, padding=1)
+        self.conv_upsample3 = BasicConv2d(channel, channel, 3, padding=1)
+        self.conv_upsample4 = BasicConv2d(channel, channel, 3, padding=1)
+        self.conv_upsample5 = BasicConv2d(2 * channel, 2 * channel, 3, padding=1)
+        self.conv_concat2 = BasicConv2d(2 * channel, 2 * channel, 3, padding=1)
+        self.conv_concat3 = BasicConv2d(3 * channel, 3 * channel, 3, padding=1)
+        self.conv4 = BasicConv2d(3 * channel, 3 * channel, 3, padding=1)
+        self.conv5 = nn.Conv2d(3 * channel, 1, 1)
+
+    def forward(self, x1, x2, x3):
+        x1_1 = x1
+        x2_1 = self.conv_upsample1(self.upsample(x1)) * x2
+        x3_1 = (
+            self.conv_upsample2(self.upsample(self.upsample(self.upsample(x1))))
+            * self.conv_upsample3(self.upsample(self.upsample(x2)))
+            * x3
+        )
+        x2_2 = torch.cat((x2_1, self.conv_upsample4(self.upsample(x1_1))), 1)
+        x2_2 = self.conv_concat2(x2_2)
+        x3_2 = torch.cat((x3_1, self.conv_upsample5(self.upsample(self.upsample(x2_2)))), 1)
+        x3_2 = self.conv_concat3(x3_2)
+        decoder_feat = self.conv4(x3_2)
+        return self.conv5(decoder_feat), decoder_feat
