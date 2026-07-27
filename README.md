@@ -1,8 +1,8 @@
 # RaFBNet
 
-Official inference package for **RaFBNet: Reliability-aware Foreground-Background Network** for salient object detection in optical remote sensing images.
+Official inference package for **RaFBNet: Reliability-Aware Foreground-Background Refinement Network** for salient object detection in optical remote sensing images.
 
-This GitHub-ready release contains inference code, reported saliency maps, and metric summaries. Training code is intentionally not included and will be released separately. Model weights are not included in this no-weight package; download them separately from Baidu Netdisk and place them under `weights/`.
+This GitHub-ready release contains inference code, saliency maps, and metric summaries. Training code is intentionally not included and will be released separately. Model weights are distributed separately and should be placed under `weights/`.
 
 ## Contents
 
@@ -21,26 +21,27 @@ RaFBNet_release_no_weights/
     ORSSD/
     EORSSD/
   metrics/
-    metrics_ORSSD.json
-    metrics_EORSSD.json
+    results.json
 ```
 
-## Checkpoints
+## Paper-aligned checkpoints and results
 
-Download the following files separately from Baidu Netdisk, then place them in `weights/`:
+The current paper reports eight evaluation metrics on ORSSD, EORSSD, and ORSI-4199. Use the following dataset-specific checkpoints to reproduce the corresponding results:
 
-Baidu Netdisk:
+| Dataset | Checkpoint | $S_\alpha$ | $F_\beta^{max}$ | $F_\beta^{mean}$ | $F_\beta^{adp}$ | $E_\xi^{max}$ | $E_\xi^{mean}$ | $E_\xi^{adp}$ | MAE |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| ORSSD | `weights/RaFBNet_ORSSD.pth` | 0.9496 | 0.9262 | 0.9140 | 0.9056 | 0.9860 | 0.9816 | 0.9827 | 0.0063 |
+| EORSSD | `weights/RaFBNet_EORSSD.pth` | 0.9439 | 0.8997 | 0.8857 | 0.8701 | 0.9850 | 0.9801 | 0.9788 | 0.0045 |
+| ORSI-4199 | `weights/RaFBNet_ORSI4199_epoch46.pth` | 0.8888 | 0.8904 | 0.8860 | 0.8855 | 0.9567 | 0.9499 | 0.9534 | 0.0263 |
+
+Download the paper-aligned checkpoint bundle from Baidu Netdisk:
 
 ```text
-Link: https://pan.baidu.com/s/1iafDNRJd3HnfgP38IXutLw
-Extraction code: iv42
-Archive: weights.zip
+Link: https://pan.baidu.com/s/1urZk3k0EWJPAvwL28YnMvg
+Extraction code: erh5
+Archive: RaFBNet_paper_aligned_weights_windows_20260727.zip
+SHA-256: cf2a3a4ff3946212b8099fe911936e5a97d5a67f179bc76b1cdedc60305ef6ad
 ```
-
-| Dataset | Checkpoint | Epoch | S-measure | wF-measure | MAE |
-|---|---:|---:|---:|---:|---:|
-| ORSSD | `weights/RaFBNet_ORSSD_epoch47.pth` | 47 | 0.948672 | 0.912539 | 0.006864 |
-| EORSSD | `weights/RaFBNet_EORSSD_epoch51.pth` | 51 | 0.943145 | 0.889039 | 0.004627 |
 
 The PVTv2-B2 backbone checkpoint should also be placed at:
 
@@ -48,11 +49,12 @@ The PVTv2-B2 backbone checkpoint should also be placed at:
 weights/pvt_v2_b2.pth
 ```
 
-Recommended Baidu Netdisk bundle:
+The paper-aligned checkpoint bundle should contain:
 
 ```text
-RaFBNet_ORSSD_epoch47.pth
-RaFBNet_EORSSD_epoch51.pth
+RaFBNet_ORSSD.pth
+RaFBNet_EORSSD.pth
+RaFBNet_ORSI4199_epoch46.pth
 pvt_v2_b2.pth
 ```
 
@@ -83,7 +85,7 @@ Example on ORSSD:
 python tools/infer.py \
   --image_root ./dataset/test_dataset/ORSSD/image \
   --gt_root ./dataset/test_dataset/ORSSD/GT \
-  --checkpoint ./weights/RaFBNet_ORSSD_epoch47.pth \
+  --checkpoint ./weights/RaFBNet_ORSSD.pth \
   --save_root ./outputs/ORSSD \
   --radio_repo /path/to/RADIO \
   --radio_checkpoint /path/to/radio-v2.5-b_half.pth.tar
@@ -95,8 +97,20 @@ Example on EORSSD:
 python tools/infer.py \
   --image_root ./dataset/test_dataset/EORSSD/image \
   --gt_root ./dataset/test_dataset/EORSSD/GT \
-  --checkpoint ./weights/RaFBNet_EORSSD_epoch51.pth \
+  --checkpoint ./weights/RaFBNet_EORSSD.pth \
   --save_root ./outputs/EORSSD \
+  --radio_repo /path/to/RADIO \
+  --radio_checkpoint /path/to/radio-v2.5-b_half.pth.tar
+```
+
+Example on ORSI-4199:
+
+```bash
+python tools/infer.py \
+  --image_root ./dataset/test_dataset/ORSI-4199/image \
+  --gt_root ./dataset/test_dataset/ORSI-4199/GT \
+  --checkpoint ./weights/RaFBNet_ORSI4199_epoch46.pth \
+  --save_root ./outputs/ORSI-4199 \
   --radio_repo /path/to/RADIO \
   --radio_checkpoint /path/to/radio-v2.5-b_half.pth.tar
 ```
@@ -109,4 +123,5 @@ Predicted saliency maps are written as normalized grayscale PNG files.
 - Dataset files are not included.
 - This no-weight package is suitable for normal GitHub upload without Git LFS.
 - Put downloaded checkpoint files under `weights/` before running inference.
+- The GitHub repository itself does not contain model checkpoints; checkpoint hosting is handled separately because each RaFBNet checkpoint is approximately 497 MB.
 - The code is named consistently as RaFBNet to avoid coupling the public release to earlier internal experiment names.
