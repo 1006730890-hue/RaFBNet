@@ -3,4 +3,3 @@ torchvision
 timm
 numpy
 Pillow
-imageio

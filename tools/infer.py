@@ -4,7 +4,7 @@ import sys
 import time
 from pathlib import Path
 
-import imageio.v2 as imageio
+from PIL import Image
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -24,7 +24,6 @@ def parse_args():
     parser.add_argument("--save_root", type=str, default="outputs", help="Directory for predicted saliency maps.")
     parser.add_argument("--testsize", type=int, default=352)
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--pvt_checkpoint", type=str, default=str(ROOT / "weights" / "pvt_v2_b2.pth"))
     parser.add_argument("--radio_repo", type=str, required=True, help="Path to the RADIO repository.")
     parser.add_argument("--radio_checkpoint", type=str, required=True, help="Path to RADIO v2.5-B checkpoint.")
     parser.add_argument("--radio_gate_alpha", type=float, default=1.0)
@@ -37,7 +36,6 @@ def main():
 
     device = torch.device(args.device if torch.cuda.is_available() and args.device.startswith("cuda") else "cpu")
     model = RaFBNet(
-        pvt_checkpoint=args.pvt_checkpoint,
         radio_repo=args.radio_repo,
         radio_checkpoint=args.radio_checkpoint,
         radio_gate_alpha=args.radio_gate_alpha,
@@ -64,7 +62,8 @@ def main():
             pred = F.interpolate(pred, size=gt.shape, mode="bilinear", align_corners=False)
             pred = pred.sigmoid().data.cpu().numpy().squeeze()
             pred = (pred - pred.min()) / (pred.max() - pred.min() + 1e-8)
-            imageio.imsave(save_path / name, (pred * 255).astype(np.uint8))
+            pred = np.round(pred * 255).astype(np.uint8)
+            Image.fromarray(pred, mode="L").save(save_path / name)
 
     fps = test_loader.size / max(time_sum, 1e-8)
     print(f"Images: {test_loader.size}")

@@ -1,21 +1,21 @@
 # Weights
 
-This no-weight GitHub package does not include checkpoint files.
+This GitHub package does not include checkpoint files (each RaFBNet checkpoint is about 443 MB).
 
-The current paper-aligned checkpoint bundle should contain the following files. Download them separately, then place them here:
+Download the checkpoint bundle separately and place the three files here:
 
-- `RaFBNet_ORSSD.pth`
-- `RaFBNet_EORSSD.pth`
-- `RaFBNet_ORSI4199_epoch46.pth`
-- `pvt_v2_b2.pth`
+- `RaFBNet_ORSSD.pth`     -> ORSSD
+- `RaFBNet_EORSSD.pth`    -> EORSSD
+- `RaFBNet_ORSI4199.pth`  -> ORSI-4199
 
 Download the bundle from Baidu Netdisk:
 
 ```text
-Link: https://pan.baidu.com/s/1urZk3k0EWJPAvwL28YnMvg
-Extraction code: erh5
-Archive: RaFBNet_paper_aligned_weights_windows_20260727.zip
-SHA-256: cf2a3a4ff3946212b8099fe911936e5a97d5a67f179bc76b1cdedc60305ef6ad
+Link: https://pan.baidu.com/s/1LwK35HxuSiPGFJvbzUTcVw
+Extraction code: dfcc
+Archive: RaFB.zip
+SHA-256: 57140e8faa27b2feec50d32e1a4f29779e1f4471ef16d451f0cbcc9fe9ee74e0
 ```
 
-RADIO v2.5-B is an external dependency. Download or place the RADIO checkpoint separately and pass its path via `--radio_checkpoint`.
+RADIO v2.5-B is an external dependency. Place the RADIO checkpoint separately and pass its path via
+`--radio_checkpoint`; pass the RADIO source directory via `--radio_repo`.

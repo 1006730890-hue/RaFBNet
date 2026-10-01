@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .pvtv2 import pvt_v2_b2
+from .smt_tiny import SMTTinyBackbone
 from .rafbnet_blocks import (
     BasicConv2d,
     DirectionalConvUnit,
@@ -75,7 +75,6 @@ class RaFBNet(nn.Module):
     def __init__(
         self,
         channel=32,
-        pvt_checkpoint="weights/pvt_v2_b2.pth",
         radio_repo=None,
         radio_checkpoint=None,
         use_radio=True,
@@ -83,18 +82,14 @@ class RaFBNet(nn.Module):
     ):
         super().__init__()
 
-        self.backbone = pvt_v2_b2()
-        if pvt_checkpoint:
-            save_model = torch.load(pvt_checkpoint, map_location="cpu")
-            model_dict = self.backbone.state_dict()
-            state_dict = {k: v for k, v in save_model.items() if k in model_dict}
-            model_dict.update(state_dict)
-            self.backbone.load_state_dict(model_dict)
+        # SMT-Tiny hierarchical encoder; its weights are part of the released checkpoint.
+        self.backbone = SMTTinyBackbone()
+        backbone_channels = (64, 128, 256, 512)
 
-        self.ChannelNormalization_1 = BasicConv2d(64, channel, 3, 1, 1)
-        self.ChannelNormalization_2 = BasicConv2d(128, channel, 3, 2, 1)
-        self.ChannelNormalization_3 = BasicConv2d(320, channel, 3, 1, 1)
-        self.ChannelNormalization_4 = BasicConv2d(512, channel, 3, 1, 1)
+        self.ChannelNormalization_1 = BasicConv2d(backbone_channels[0], channel, 3, 1, 1)
+        self.ChannelNormalization_2 = BasicConv2d(backbone_channels[1], channel, 3, 2, 1)
+        self.ChannelNormalization_3 = BasicConv2d(backbone_channels[2], channel, 3, 1, 1)
+        self.ChannelNormalization_4 = BasicConv2d(backbone_channels[3], channel, 3, 1, 1)
         self.SWSAM_4 = SWSAM(channel)
         self.dirConv = DirectionalConvUnit(channel)
         self.DSWSAM_1 = SWSAM(channel)
