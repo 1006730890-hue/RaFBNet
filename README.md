@@ -39,7 +39,6 @@ Download the checkpoint bundle from Baidu Netdisk:
 Link: https://pan.baidu.com/s/1LwK35HxuSiPGFJvbzUTcVw
 Extraction code: dfcc
 Archive: RaFB.zip
-SHA-256: 57140e8faa27b2feec50d32e1a4f29779e1f4471ef16d451f0cbcc9fe9ee74e0
 ```
 
 The bundle contains:
