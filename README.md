@@ -2,7 +2,7 @@
 
 Official inference package for **RaFBNet: Reliability-Aware Foreground-Background Refinement Network** for salient object detection in optical remote sensing images.
 
-This release contains the inference code and metric summaries. Training code is intentionally not included and will be released separately. Model weights are distributed separately and should be placed under `weights/`.
+This release contains the inference code and metric summaries. Model weights are distributed separately and should be placed under `weights/`.
 
 ## Contents
 
