@@ -110,11 +110,3 @@ python tools/infer.py \
 ```
 
 Predicted saliency maps are written as normalized grayscale PNG files, one per test image. The metric summaries in `metrics/results.json` are produced by evaluating these maps with the `py_sod_metrics` toolkit on the standard test splits.
-
-## Notes
-
-- This package is inference-only.
-- Dataset files are not included.
-- Put the downloaded checkpoint files under `weights/` before running inference.
-- The GitHub repository itself does not contain model checkpoints; checkpoint hosting is handled separately because each RaFBNet checkpoint is approximately 443 MB.
-- The code is named consistently as RaFBNet to avoid coupling the public release to earlier internal experiment names.
